@@ -92,7 +92,11 @@ struct drm_compositor {
 		int fd;
 		char *filename;
 	} drm;
-	struct gbm_device *gbm;
+	struct {
+		int fd;
+		char *filename;
+	} gbm;
+	struct gbm_device *gbm_device;
 	uint32_t *crtcs;
 	int num_crtcs;
 	uint32_t crtc_allocator;
@@ -476,14 +480,14 @@ drm_output_prepare_scanout_view(struct weston_output *_output,
 
 	if (ev->geometry.x != output->base.x ||
 	    ev->geometry.y != output->base.y ||
-	    buffer == NULL || c->gbm == NULL ||
+	    buffer == NULL || c->gbm_device == NULL ||
 	    buffer->width != output->base.current_mode->width ||
 	    buffer->height != output->base.current_mode->height ||
 	    output->base.transform != viewport->buffer.transform ||
 	    ev->transform.enabled)
 		return NULL;
 
-	bo = gbm_bo_import(c->gbm, GBM_BO_IMPORT_WL_BUFFER,
+	bo = gbm_bo_import(c->gbm_device, GBM_BO_IMPORT_WL_BUFFER,
 			   buffer->resource, GBM_BO_USE_SCANOUT);
 
 	/* Unable to use the buffer for scanout */
@@ -833,7 +837,7 @@ drm_output_prepare_overlay_view(struct weston_output *output_base,
 	uint32_t format;
 	wl_fixed_t sx1, sy1, sx2, sy2;
 
-	if (c->gbm == NULL)
+	if (c->gbm_device == NULL)
 		return NULL;
 
 	if (viewport->buffer.transform != output_base->transform)
@@ -874,7 +878,7 @@ drm_output_prepare_overlay_view(struct weston_output *output_base,
 	if (!found)
 		return NULL;
 
-	bo = gbm_bo_import(c->gbm, GBM_BO_IMPORT_WL_BUFFER,
+	bo = gbm_bo_import(c->gbm_device, GBM_BO_IMPORT_WL_BUFFER,
 			   ev->surface->buffer_ref.buffer->resource,
 			   GBM_BO_USE_SCANOUT);
 	if (!bo)
@@ -971,7 +975,7 @@ drm_output_prepare_cursor_view(struct weston_output *output_base,
 	struct weston_buffer_viewport *viewport = &ev->surface->buffer_viewport;
 	struct drm_output *output = (struct drm_output *) output_base;
 
-	if (c->gbm == NULL)
+	if (c->gbm_device == NULL)
 		return NULL;
 	if (output->base.transform != WL_OUTPUT_TRANSFORM_NORMAL)
 		return NULL;
@@ -1305,6 +1309,9 @@ init_drm(struct drm_compositor *ec, struct udev_device *device)
 	ec->drm.fd = fd;
 	ec->drm.filename = strdup(filename);
 
+	ec->gbm.fd = fd;
+	ec->gbm.filename = ec->drm.filename;
+
 	ret = drmGetCap(fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap);
 	if (ret == 0 && cap == 1)
 		ec->clock = CLOCK_MONOTONIC;
@@ -1354,7 +1361,7 @@ drm_compositor_create_gl_renderer(struct drm_compositor *ec)
 	EGLint format;
 
 	format = ec->format;
-	if (gl_renderer->create(&ec->base, ec->gbm,
+	if (gl_renderer->create(&ec->base, ec->gbm_device,
 			       gl_renderer->opaque_attribs, &format) < 0) {
 		return -1;
 	}
@@ -1365,13 +1372,13 @@ drm_compositor_create_gl_renderer(struct drm_compositor *ec)
 static int
 init_egl(struct drm_compositor *ec)
 {
-	ec->gbm = create_gbm_device(ec->drm.fd);
+	ec->gbm_device = create_gbm_device(ec->gbm.fd);
 
-	if (!ec->gbm)
+	if (!ec->gbm_device)
 		return -1;
 
 	if (drm_compositor_create_gl_renderer(ec) < 0) {
-		gbm_device_destroy(ec->gbm);
+		gbm_device_destroy(ec->gbm_device);
 		return -1;
 	}
 
@@ -1562,7 +1569,7 @@ drm_output_init_egl(struct drm_output *output, struct drm_compositor *ec)
 	EGLint format = output->format;
 	int i, flags;
 
-	output->surface = gbm_surface_create(ec->gbm,
+	output->surface = gbm_surface_create(ec->gbm_device,
 					     output->base.current_mode->width,
 					     output->base.current_mode->height,
 					     format,
@@ -1588,7 +1595,7 @@ drm_output_init_egl(struct drm_output *output, struct drm_compositor *ec)
 			continue;
 
 		output->cursor_bo[i] =
-			gbm_bo_create(ec->gbm, ec->cursor_width, ec->cursor_height,
+			gbm_bo_create(ec->gbm_device, ec->cursor_width, ec->cursor_height,
 				GBM_FORMAT_ARGB8888, flags);
 	}
 
@@ -2412,8 +2419,8 @@ drm_destroy(struct weston_compositor *ec)
 
 	weston_compositor_shutdown(ec);
 
-	if (d->gbm)
-		gbm_device_destroy(d->gbm);
+	if (d->gbm_device)
+		gbm_device_destroy(d->gbm_device);
 
 	weston_launcher_destroy(d->base.launcher);
 
@@ -2703,8 +2710,8 @@ switch_to_gl_renderer(struct drm_compositor *c)
 
 	weston_log("Switching to GL renderer\n");
 
-	c->gbm = create_gbm_device(c->drm.fd);
-	if (!c->gbm) {
+	c->gbm_device = create_gbm_device(c->drm.fd);
+	if (!c->gbm_device) {
 		weston_log("Failed to create gbm device. "
 			   "Aborting renderer switch\n");
 		return;
@@ -2716,7 +2723,7 @@ switch_to_gl_renderer(struct drm_compositor *c)
 	c->base.renderer->destroy(&c->base);
 
 	if (drm_compositor_create_gl_renderer(c) < 0) {
-		gbm_device_destroy(c->gbm);
+		gbm_device_destroy(c->gbm_device);
 		weston_log("Failed to create GL renderer. Quitting.\n");
 		/* FIXME: we need a function to shutdown cleanly */
 		assert(0);
@@ -2894,7 +2901,7 @@ err_udev_input:
 	udev_input_destroy(&ec->input);
 err_sprite:
 	ec->base.renderer->destroy(&ec->base);
-	gbm_device_destroy(ec->gbm);
+	gbm_device_destroy(ec->gbm_device);
 	destroy_sprites(ec);
 err_udev_dev:
 	udev_device_unref(drm_device);
