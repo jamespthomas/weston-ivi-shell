@@ -42,6 +42,9 @@
 
 #include <gbm.h>
 #include <libudev.h>
+#ifdef HAVE_DRM_TEGRA
+#include <tegra_drm.h>
+#endif
 
 #include "libbacklight.h"
 #include "compositor.h"
@@ -211,6 +214,32 @@ static struct gl_renderer_interface *gl_renderer;
 
 static const char default_seat[] = "seat0";
 
+static int
+drm_tegra_import(int fd, uint32_t handle)
+{
+	#ifdef HAVE_DRM_TEGRA
+	struct drm_tegra_gem_set_tiling args;
+	int err;
+
+	memset(&args, 0, sizeof(args));
+	args.handle = handle;
+	args.mode = DRM_TEGRA_GEM_TILING_MODE_BLOCK;
+	args.value = 4;
+
+	err = ioctl(fd, DRM_IOCTL_TEGRA_GEM_SET_TILING, &args);
+	if (err < 0) {
+		weston_log("failed to set tiling parameters: %m\n");
+		return -errno;
+	}
+	return 0;
+	#else
+	weston_log("DRM device is a tegra but weston compiled without "
+		   "libdrm tegra");
+
+	return -1;
+	#endif
+}
+
 static void
 drm_output_set_cursor(struct drm_output *output);
 
@@ -350,6 +379,32 @@ drm_fb_get_from_bo(struct gbm_bo *bo,
 	fb->handle = gbm_bo_get_handle(bo).u32;
 	fb->size = fb->stride * height;
 	fb->fd = compositor->drm.fd;
+
+	if (compositor->drm.fd != compositor->gbm.fd) {
+		int fd;
+
+		ret = drmPrimeHandleToFD(compositor->gbm.fd, fb->handle, 0,
+					 &fd);
+		if (ret) {
+			weston_log("failed to export bo: %m\n");
+			goto err_free;
+		}
+
+		ret = drmPrimeFDToHandle(compositor->drm.fd, fd, &fb->handle);
+		if (ret) {
+			weston_log("failed to import bo: %m\n");
+			goto err_free;
+		}
+
+		close(fd);
+
+	        ret = drm_tegra_import(compositor->drm.fd, fb->handle);
+		if (ret < 0) {
+			weston_log("failed to import handle: %s\n",
+				   strerror(-ret));
+			goto err_free;
+		}
+	}
 
 	if (compositor->min_width > width || width > compositor->max_width ||
 	    compositor->min_height > height ||
@@ -1265,6 +1320,8 @@ on_drm_input(int fd, uint32_t mask, void *data)
 	return 1;
 }
 
+
+
 static int
 init_drm(struct drm_compositor *ec, struct udev_device *device)
 {
@@ -1294,8 +1351,14 @@ init_drm(struct drm_compositor *ec, struct udev_device *device)
 	ec->drm.fd = fd;
 	ec->drm.filename = strdup(filename);
 
-	ec->gbm.fd = fd;
-	ec->gbm.filename = ec->drm.filename;
+	if (ec->gbm.filename) {
+		fd = weston_launcher_open(ec->base.launcher, ec->gbm.filename,
+					  O_RDWR);
+		ec->gbm.fd = fd;
+	} else {
+		ec->gbm.fd = fd;
+		ec->gbm.filename = ec->drm.filename;
+	}
 
 	ret = drmGetCap(fd, DRM_CAP_TIMESTAMP_MONOTONIC, &cap);
 	if (ret == 0 && cap == 1)
@@ -2500,7 +2563,7 @@ find_primary_gpu(struct drm_compositor *ec, const char *seat)
 	struct udev_enumerate *e;
 	struct udev_list_entry *entry;
 	const char *path, *device_seat, *id;
-	struct udev_device *device, *drm_device, *pci;
+	struct udev_device *device, *drm_device, *pci, *soc = NULL;
 
 	e = udev_enumerate_new(ec->udev);
 	udev_enumerate_add_match_subsystem(e, "drm");
@@ -2510,6 +2573,7 @@ find_primary_gpu(struct drm_compositor *ec, const char *seat)
 	drm_device = NULL;
 	udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(e)) {
 		path = udev_list_entry_get_name(entry);
+		weston_log("udev path = %s\n", path);
 		device = udev_device_new_from_syspath(ec->udev, path);
 		if (!device)
 			continue;
@@ -2530,6 +2594,32 @@ find_primary_gpu(struct drm_compositor *ec, const char *seat)
 					udev_device_unref(drm_device);
 				drm_device = device;
 				break;
+			}
+		} else {
+			soc = udev_device_get_parent_with_subsystem_devtype(
+									device,
+									"soc",
+									NULL);
+			if (soc) {
+				id = udev_device_get_sysattr_value(soc,
+								"family");
+				if (id && !strcmp(id, "Tegra")) {
+					if (drm_device) {
+						/* Previously have found the
+						 * drm device, use this device
+						 * as the GBM device
+						 */
+						if (udev_device_get_devnode(
+								device)) {
+							ec->gbm.filename = strdup(
+								udev_device_get_devnode(device));
+							break;
+						}
+						continue;
+					}
+					drm_device = device;
+					continue;
+				}
 			}
 		}
 
