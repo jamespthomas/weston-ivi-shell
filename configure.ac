@@ -225,6 +225,7 @@ AS_IF([test x$enable_fbdev_compositor = xyes], [
   PKG_CHECK_MODULES([FBDEV_COMPOSITOR], [libudev >= 136 mtdev >= 1.1.0])
 ])
 
+
 AC_ARG_ENABLE([rdp-compositor], [  --enable-rdp-compositor],,
               enable_rdp_compositor=no)
 AM_CONDITIONAL([ENABLE_RDP_COMPOSITOR],
@@ -535,6 +536,15 @@ PKG_CHECK_MODULES(WAYLAND_SCANNER, wayland-scanner)
 AC_CONFIG_FILES([Makefile src/version.h src/weston.pc])
 
 AM_CONDITIONAL([HAVE_GIT_REPO], [test -f $srcdir/.git/logs/HEAD])
+
+AC_ARG_ENABLE([gal2d-compositor], [  --enable-gal2d-compositor],,
+              enable_gal2d_compositor=yes)
+AM_CONDITIONAL([ENABLE_GAL2D_COMPOSITOR],
+               [test x$enable_gal2d_compositor = xyes])
+AS_IF([test x$enable_gal2d_compositor = xyes], [
+  AC_DEFINE([BUILD_GAL2D_COMPOSITOR], [1], [Build the gal2d compositor])
+  PKG_CHECK_MODULES([GAL2D_COMPOSITOR], [libudev >= 136 mtdev >= 1.1.0])
+])
 
 AC_OUTPUT
 

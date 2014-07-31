@@ -170,6 +170,9 @@ gl_renderer_la_SOURCES =			\
 	src/vertex-clipping.c			\
 	src/vertex-clipping.h
 
+endif
+
+if ENABLE_GAL2D_COMPOSITOR
 module_LTLIBRARIES += gal2d-renderer.la
 gal2d_renderer_la_LDFLAGS = -module -avoid-version
 gal2d_renderer_la_LIBADD = $(COMPOSITOR_LIBS) $(EGL_LIBS)
@@ -326,6 +329,7 @@ fbdev_backend_la_SOURCES =			\
 	src/compositor-fbdev.c			\
 	$(INPUT_BACKEND_SOURCES)
 endif
+
 
 if ENABLE_RDP_COMPOSITOR
 module_LTLIBRARIES += rdp-backend.la
@@ -1114,3 +1118,24 @@ protocol/%-server-protocol.h : $(top_srcdir)/protocol/%.xml
 
 protocol/%-client-protocol.h : $(top_srcdir)/protocol/%.xml
 	$(AM_V_GEN)$(MKDIR_P) $(dir $@) && $(wayland_scanner) client-header < $< > $@
+
+if ENABLE_GAL2D_COMPOSITOR
+module_LTLIBRARIES += gal2d-backend.la
+gal2d_backend_la_LDFLAGS = -module -avoid-version
+gal2d_backend_la_LIBADD =			\
+	$(EGL_LIBS)				\
+	$(COMPOSITOR_LIBS)			\
+	$(GAL2D_COMPOSITOR_LIBS)		\
+	$(INPUT_BACKEND_LIBS)			\
+	libsession-helper.la			\
+	libshared.la
+gal2d_backend_la_CFLAGS =			\
+	$(EGL_CFLAGS)				\
+	$(COMPOSITOR_CFLAGS)			\
+	$(GAL2D_COMPOSITOR_CFLAGS)		\
+	$(PIXMAN_CFLAGS)			\
+	$(GCC_CFLAGS)
+gal2d_backend_la_SOURCES =			\
+	src/compositor-gal2d.c			\
+	$(INPUT_BACKEND_SOURCES)
+endif
