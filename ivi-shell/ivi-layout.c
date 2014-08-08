@@ -2413,10 +2413,52 @@ ivi_layout_surfaceGetOpacity(struct ivi_layout_surface *ivisurf,
 WL_EXPORT int32_t
 ivi_layout_SetKeyboardFocusOn(struct ivi_layout_surface *ivisurf)
 {
-    /* TODO */
-    (void)ivisurf;
+    int32_t retval = -1;
+    struct ivi_layout *layout = get_instance();
+    struct wl_list *seat_list = &layout->compositor->seat_list;
+    struct wl_list *surface_list = &layout->list_surface;
+    struct weston_seat *seat;
+    struct ivi_layout_surface *current_surf;
 
-    return 0;
+    if (ivisurf == NULL) {
+        weston_log("%s: invalid argument\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (seat_list == NULL) {
+        weston_log("%s: seat list is NULL\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (ivisurf->surface == NULL) {
+        weston_log("%s: ivisurf has no surface\n", __FUNCTION__);
+        return -1;
+    }
+
+    if (surface_list == NULL) {
+        weston_log("%s: surface list is NULL\n", __FUNCTION__);
+        return -1;
+    }
+
+    wl_list_for_each(seat, seat_list, link) {
+        if (seat->keyboard != NULL) {
+            weston_keyboard_set_focus(seat->keyboard, ivisurf->surface);
+            retval = 0;
+        }
+    }
+
+    if (retval == 0) {
+        wl_list_for_each(current_surf, &layout->list_surface, link) {
+            if (current_surf == ivisurf) {
+                current_surf->prop.hasKeyboardFocus = 1;
+            } else {
+                current_surf->prop.hasKeyboardFocus = 0;
+            }
+            current_surf->event_mask |= IVI_NOTIFICATION_KEYBOARD_FOCUS;
+        }
+    }
+
+    return retval;
 }
 
 WL_EXPORT int32_t
