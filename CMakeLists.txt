@@ -29,6 +29,7 @@ SET(ILM_API_VERSION 1.2.0)
 add_subdirectory(protocol)
 
 add_subdirectory(weston-ivi-shell)
+add_subdirectory(ivi-input-calibration)
 
 add_subdirectory(ivi-layermanagement-api/ilmCommon)
 add_subdirectory(ivi-layermanagement-api/ilmClient)
