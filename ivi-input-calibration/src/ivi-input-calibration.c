@@ -20,6 +20,8 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <getopt.h>
+
 #include <weston/compositor.h>
 
 struct calibration_seat_context {
@@ -292,10 +294,55 @@ init_context(struct weston_compositor *ec)
     wl_signal_add(&ec->seat_created_signal, &g_ctx.seat_create_listener);
 }
 
+static void
+strip_args(int *argc, char *argv[], int index, int count)
+{
+    for (; index != *argc; index++) {
+        if (index >= *argc)
+
+            argv[index - count] = NULL;
+        else
+            argv[index - count] = argv[index];
+    }
+}
+
 WL_EXPORT int
 module_init(struct weston_compositor *ec, int *argc, char *argv[])
 {
     struct weston_seat *seat;
+    int getopt_ret;
+    char *input_configuration_path = NULL;
+    int swallowed_args = 0;
+
+    /* Using getopt because weston's libshared is not exported */
+    struct option long_opts[] = {
+        { "input-configuration", required_argument, 0, 'c' },
+        {0, 0, 0, 0}
+    };
+
+    while ((getopt_ret = getopt_long(*argc, argv, "", long_opts, NULL)) != -1) {
+        if (getopt_ret == 'c') {
+            input_configuration_path = optarg;
+
+            /* If optarg is not a separate element of argv */
+            if (optarg != argv[optind - 1]) {
+                /* Remove 1 element from argv, decrement argc by 1 */
+                strip_args(argc, argv, optind, 1);
+                swallowed_args++;
+            } else {
+                /* Remove 2 elements from argv, decrement argc by 2 */
+                strip_args(argc, argv, optind, 2);
+                swallowed_args += 2;
+            }
+        }
+    }
+
+    *argc -= swallowed_args;
+
+    if (input_configuration_path != NULL) {
+        weston_log("Reading input configuration from '%s'\n", input_configuration_path);
+    }
+
     init_context(ec);
 
     wl_list_for_each(seat, &ec->seat_list, link) {
