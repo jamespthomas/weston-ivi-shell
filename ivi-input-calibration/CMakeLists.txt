@@ -49,7 +49,14 @@ link_directories(
 
 
 add_library(${PROJECT_NAME} MODULE
+    src/calibration-input-configuration.c
+    src/calibration-subdivision-button.c
+    src/calibration-subdivision-slider.c
+    src/calibration-subdivision-touch.c
+    src/calibration-subdivision.c
+    src/calibration-util.c
     src/ivi-input-calibration.c
+
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "")
@@ -73,6 +80,17 @@ set(LIBS
 set(CMAKE_C_LDFLAGS "-module -avoid-version")
 
 target_link_libraries(${PROJECT_NAME} ${LIBS})
+
+install (
+    FILES   ${CMAKE_SOURCE_DIR}/ivi-input-calibration/include/calibration-input-calibration.h
+            ${CMAKE_SOURCE_DIR}/ivi-input-calibration/include/calibration-input-configuration.h
+            ${CMAKE_SOURCE_DIR}/ivi-input-calibration/include/calibration-subdivision-button.h
+            ${CMAKE_SOURCE_DIR}/ivi-input-calibration/include/calibration-subdivision-slider.h
+            ${CMAKE_SOURCE_DIR}/ivi-input-calibration/include/calibration-subdivision-touch.h
+            ${CMAKE_SOURCE_DIR}/ivi-input-calibration/include/calibration-subdivision.h
+            ${CMAKE_SOURCE_DIR}/ivi-input-calibration/include/calibration-util.h
+    DESTINATION include/ilm
+)
 
 install (
     TARGETS             ${PROJECT_NAME}

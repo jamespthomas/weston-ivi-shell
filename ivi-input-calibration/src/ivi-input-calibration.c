@@ -22,7 +22,13 @@
 
 #include <getopt.h>
 
+#include <wayland-util.h>
 #include <weston/compositor.h>
+
+#include "calibration-input-configuration.h"
+#include "calibration-subdivision-button.h"
+#include "calibration-subdivision-slider.h"
+#include "calibration-subdivision-touch.h"
 
 struct calibration_seat_context {
     struct wl_listener destroy_listener;
@@ -38,6 +44,7 @@ struct calibration_seat_context {
 
 struct input_calibration_context {
     struct wl_listener seat_create_listener;
+    struct calibration_input_configuration configuration;
 
     struct wl_list seat_context_list;
 };
@@ -285,13 +292,19 @@ handle_seat_create(struct wl_listener *listener, void *data)
 }
 
 static void
-init_context(struct weston_compositor *ec)
+init_context(struct weston_compositor *ec, const char *config_path)
 {
     wl_list_init(&g_ctx.seat_context_list);
 
     /* Set up seat creation listener */
     g_ctx.seat_create_listener.notify = &handle_seat_create;
     wl_signal_add(&ec->seat_created_signal, &g_ctx.seat_create_listener);
+
+    /* Set up configuration */
+    if (config_path != NULL) {
+        calibration_input_configuration_init(&g_ctx.configuration, config_path);
+        calibration_input_configuration_parse(&g_ctx.configuration, config_path);
+    }
 }
 
 static void
@@ -320,6 +333,7 @@ module_init(struct weston_compositor *ec, int *argc, char *argv[])
         {0, 0, 0, 0}
     };
 
+
     while ((getopt_ret = getopt_long(*argc, argv, "", long_opts, NULL)) != -1) {
         if (getopt_ret == 'c') {
             input_configuration_path = optarg;
@@ -339,11 +353,7 @@ module_init(struct weston_compositor *ec, int *argc, char *argv[])
 
     *argc -= swallowed_args;
 
-    if (input_configuration_path != NULL) {
-        weston_log("Reading input configuration from '%s'\n", input_configuration_path);
-    }
-
-    init_context(ec);
+    init_context(ec, input_configuration_path);
 
     wl_list_for_each(seat, &ec->seat_list, link) {
         handle_seat_create(NULL, seat);
