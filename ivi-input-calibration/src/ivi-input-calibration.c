@@ -291,6 +291,52 @@ handle_seat_create(struct wl_listener *listener, void *data)
     wl_list_insert(&g_ctx.seat_context_list, &seat_ctx->link);
 }
 
+static void print_configuration(struct calibration_input_configuration *conf) {
+    struct device_name *devname;
+    struct calibration_subdivision *sub;
+    weston_log("configuration file %s\n", conf->filename);
+    wl_list_for_each(devname, &conf->device_names, link) {
+        weston_log("device name %s\n", devname->device_name);
+    }
+    wl_list_for_each(sub, &conf->subdivisions, link) {
+        weston_log("Subdivision %s, id=%d, top left=(%d,%d), "
+                   "bottom right=(%d,%d)\n",
+                   sub->name, sub->id, sub->top_left_x, sub->top_left_y,
+                   sub->bottom_right_x, sub->bottom_right_y);
+        if (sub->type == CALIBRATION_SUBDIVISION_TYPE_BUTTON) {
+            struct calibration_subdivision_button *button_sub =
+                wl_container_of(sub, button_sub, subdivision);
+            weston_log("Button subdivision, key code=%d, "
+                       "minimum repetition interval=%f\n",
+                       button_sub->key_code,
+                       button_sub->minimum_repetition_interval);
+        } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_SLIDER) {
+            const char *orientation;
+            struct calibration_subdivision_slider *slider_sub =
+                wl_container_of(sub, slider_sub, subdivision);
+            if (slider_sub->orientation == CALIBRATION_SLIDER_HORIZONTAL)
+                orientation = "horizontal";
+            else if (slider_sub->orientation == CALIBRATION_SLIDER_VERTICAL)
+                orientation = "vertical";
+            else
+                orientation = "unknown";
+            weston_log("Slider subdivision, orientation=%s, minimum value=%f, "
+                       "maximum value=%f\n", orientation,
+                       slider_sub->minimum_value, slider_sub->maximum_value);
+        } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_TOUCH) {
+            struct calibration_subdivision_touch *touch_sub =
+                wl_container_of(sub, touch_sub, subdivision);
+            weston_log("Touch subdivision, display offset=%d, "
+                       "display offset y=%d\n", touch_sub->display_offset_x,
+                       touch_sub->display_offset_y);
+        }
+    }
+    weston_log("calibration x1=%f, x2=%f, x3=%f, y1=%f, y2=%f, y3=%f\n",
+               conf->calibration.x1, conf->calibration.x2,
+               conf->calibration.x3, conf->calibration.y1,
+               conf->calibration.y2, conf->calibration.y3);
+}
+
 static void
 init_context(struct weston_compositor *ec, const char *config_path)
 {
@@ -304,6 +350,7 @@ init_context(struct weston_compositor *ec, const char *config_path)
     if (config_path != NULL) {
         calibration_input_configuration_init(&g_ctx.configuration, config_path);
         calibration_input_configuration_parse(&g_ctx.configuration, config_path);
+        print_configuration(&g_ctx.configuration);
     }
 }
 
