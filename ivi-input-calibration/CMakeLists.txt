@@ -49,6 +49,7 @@ link_directories(
 
 
 add_library(${PROJECT_NAME} MODULE
+    src/calibration-input-calibration.c
     src/calibration-input-configuration.c
     src/calibration-subdivision-button.c
     src/calibration-subdivision-slider.c
