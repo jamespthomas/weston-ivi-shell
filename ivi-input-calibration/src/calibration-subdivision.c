@@ -172,3 +172,136 @@ calibration_subdivision_get_height(struct calibration_subdivision *sub)
 {
     return sub->bottom_right_y - sub->top_left_y;
 }
+
+struct calibration_subdivision*
+calibration_subdivision_get(struct wl_list *subdivision_list, float x, float y)
+{
+    struct calibration_subdivision *sub;
+    wl_list_for_each(sub, subdivision_list, link) {
+        if (x >= sub->top_left_x && y >= sub->top_left_y
+            && x < sub->bottom_right_x && y < sub->bottom_right_y) {
+            return sub;
+        }
+    }
+    return NULL;
+}
+
+void
+calibration_subdivision_handle_down(struct calibration_subdivision *sub,
+                                    struct weston_seat *seat,
+                                    int is_pointer, uint32_t button,
+                                    uint32_t time,
+                                    wl_fixed_t x, wl_fixed_t y)
+{
+    if (sub == NULL) {
+        weston_log("%s: subdivision is NULL\n", __FUNCTION__);
+        return;
+    } else if (seat == NULL) {
+        weston_log("%s: seat is NULL\n", __FUNCTION__);
+        return;
+    }
+
+    if (sub->type == CALIBRATION_SUBDIVISION_TYPE_BUTTON) {
+        struct calibration_subdivision_button *button_sub =
+            wl_container_of(sub, button_sub, subdivision);
+        calibration_subdivision_button_handle_down(button_sub, seat,
+                                                   is_pointer, button,
+                                                   time, x, y);
+    } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_SLIDER) {
+        struct calibration_subdivision_slider *slider_sub =
+            wl_container_of(sub, slider_sub, subdivision);
+        calibration_subdivision_slider_handle_down(slider_sub, seat,
+                                                   is_pointer, button,
+                                                   time, x, y);
+
+    } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_TOUCH) {
+        struct calibration_subdivision_touch *touch_sub =
+            wl_container_of(sub, touch_sub, subdivision);
+        calibration_subdivision_touch_handle_down(touch_sub, seat,
+                                                  is_pointer, button,
+                                                  time, x, y);
+    } else {
+        weston_log("%s: subdivision has unexpected type %d\n",
+                   __FUNCTION__, sub->type);
+    }
+}
+
+void
+calibration_subdivision_handle_up(struct calibration_subdivision *sub,
+                                  struct weston_seat *seat,
+                                  int is_pointer, uint32_t button,
+                                  uint32_t time,
+                                  wl_fixed_t x, wl_fixed_t y)
+{
+    if (sub == NULL) {
+        weston_log("%s: subdivision is NULL\n", __FUNCTION__);
+        return;
+    } else if (seat == NULL) {
+        weston_log("%s: seat is NULL\n", __FUNCTION__);
+        return;
+    }
+
+    if (sub->type == CALIBRATION_SUBDIVISION_TYPE_BUTTON) {
+        struct calibration_subdivision_button *button_sub =
+            wl_container_of(sub, button_sub, subdivision);
+        calibration_subdivision_button_handle_up(button_sub, seat,
+                                                 is_pointer, button,
+                                                 time, x, y);
+    } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_SLIDER) {
+        struct calibration_subdivision_slider *slider_sub =
+            wl_container_of(sub, slider_sub, subdivision);
+        calibration_subdivision_slider_handle_up(slider_sub, seat,
+                                                 is_pointer, button,
+                                                 time, x, y);
+
+    } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_TOUCH) {
+        struct calibration_subdivision_touch *touch_sub =
+            wl_container_of(sub, touch_sub, subdivision);
+        calibration_subdivision_touch_handle_up(touch_sub, seat,
+                                                is_pointer, button,
+                                                time, x, y);
+    } else {
+        weston_log("%s: subdivision has unexpected type %d\n",
+                   __FUNCTION__, sub->type);
+    }
+}
+
+void
+calibration_subdivision_handle_motion(struct calibration_subdivision *sub,
+                                      struct weston_seat *seat,
+                                      int is_pointer, uint32_t button,
+                                      uint32_t time,
+                                      wl_fixed_t x, wl_fixed_t y)
+{
+    if (sub == NULL) {
+        weston_log("%s: subdivision is NULL\n", __FUNCTION__);
+        return;
+    } else if (seat == NULL) {
+        weston_log("%s: seat is NULL\n", __FUNCTION__);
+        return;
+    }
+
+    if (sub->type == CALIBRATION_SUBDIVISION_TYPE_BUTTON) {
+        struct calibration_subdivision_button *button_sub =
+            wl_container_of(sub, button_sub, subdivision);
+        calibration_subdivision_button_handle_motion(button_sub, seat,
+                                                   is_pointer, button,
+                                                   time, x, y);
+    } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_SLIDER) {
+        struct calibration_subdivision_slider *slider_sub =
+            wl_container_of(sub, slider_sub, subdivision);
+        calibration_subdivision_slider_handle_motion(slider_sub, seat,
+                                                     is_pointer, button,
+                                                     time, x, y);
+
+    } else if (sub->type == CALIBRATION_SUBDIVISION_TYPE_TOUCH) {
+        struct calibration_subdivision_touch *touch_sub =
+            wl_container_of(sub, touch_sub, subdivision);
+        calibration_subdivision_touch_handle_motion(touch_sub, seat,
+                                                    is_pointer, button,
+                                                    time, x, y);
+    } else {
+        weston_log("%s: subdivision has unexpected type %d\n",
+                   __FUNCTION__, sub->type);
+    }
+}

@@ -63,14 +63,43 @@ static void
 calibration_pointer_grab_motion(struct weston_pointer_grab *grab,
                                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
-    grab->pointer->default_grab.interface->motion(grab, time, x, y);
+    struct calibration_subdivision *sub;
+
+    calibration_input_calibration_apply(&g_ctx.configuration.calibration,
+                                        x, y, &x, &y);
+    sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
+                                      wl_fixed_to_double(x),
+                                      wl_fixed_to_double(y));
+
+    if (sub)
+        calibration_subdivision_handle_motion(sub, grab->pointer->seat, 1,
+                                              0, time, x, y);
 }
 
 static void
 calibration_pointer_grab_button(struct weston_pointer_grab *grab,
                                 uint32_t time, uint32_t button, uint32_t state)
 {
-    grab->pointer->default_grab.interface->button(grab, time, button, state);
+    struct calibration_subdivision *sub;
+    wl_fixed_t x, y;
+
+    calibration_input_calibration_apply(&g_ctx.configuration.calibration,
+                                        grab->pointer->grab_x,
+                                        grab->pointer->grab_y, &x, &y);
+    sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
+                                      wl_fixed_to_double(x),
+                                      wl_fixed_to_double(y));
+    if (sub) {
+        if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
+            calibration_subdivision_handle_up(sub, grab->pointer->seat, 1,
+                                              button, time, x, y);
+        } else if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            calibration_subdivision_handle_down(sub, grab->pointer->seat, 1,
+                                                button, time, x, y);
+        } else {
+            weston_log("%s: Unexpected state '%d'\n", __FUNCTION__, state);
+        }
+    }
 }
 
 static void
@@ -124,21 +153,54 @@ static void
 calibration_touch_grab_down(struct weston_touch_grab *grab, uint32_t time,
                             int touch_id, wl_fixed_t sx, wl_fixed_t sy)
 {
-    grab->touch->default_grab.interface->down(grab, time, touch_id, sx, sy);
+    struct calibration_subdivision *sub;
+    wl_fixed_t x,y;
+    calibration_input_calibration_apply(&g_ctx.configuration.calibration,
+                                        grab->touch->grab_x,
+                                        grab->touch->grab_y, &x, &y);
+    sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
+                                      wl_fixed_to_double(x),
+                                      wl_fixed_to_double(y));
+
+    if (sub)
+        calibration_subdivision_handle_down(sub, grab->touch->seat, 0,
+                                            touch_id, time, x, y);
 }
 
 static void
 calibration_touch_grab_up(struct weston_touch_grab *grab, uint32_t time,
                           int touch_id)
 {
-    grab->touch->default_grab.interface->up(grab, time, touch_id);
+    struct calibration_subdivision *sub;
+    wl_fixed_t x, y;
+    calibration_input_calibration_apply(&g_ctx.configuration.calibration,
+                                        grab->touch->grab_x,
+                                        grab->touch->grab_y, &x, &y);
+    sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
+                                      wl_fixed_to_double(x),
+                                      wl_fixed_to_double(y));
+
+    if (sub)
+        calibration_subdivision_handle_up(sub, grab->touch->seat, 0,
+                                          touch_id, time, x, y);
 }
 
 static void
 calibration_touch_grab_motion(struct weston_touch_grab *grab, uint32_t time,
                               int touch_id, wl_fixed_t sx, wl_fixed_t sy)
 {
-    grab->touch->default_grab.interface->motion(grab, time, touch_id, sx, sy);
+    struct calibration_subdivision *sub;
+    wl_fixed_t x,y;
+    calibration_input_calibration_apply(&g_ctx.configuration.calibration,
+                                        grab->touch->grab_x,
+                                        grab->touch->grab_y, &x, &y);
+    sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
+                                      wl_fixed_to_double(x),
+                                      wl_fixed_to_double(y));
+
+    if (sub)
+        calibration_subdivision_handle_motion(sub, grab->touch->seat, 0,
+                                              touch_id, time, x, y);
 }
 
 static void

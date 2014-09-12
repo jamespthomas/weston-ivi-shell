@@ -35,4 +35,21 @@ calibration_subdivision_button_parse_entry(
                 struct calibration_subdivision_button *button_sub,
                 const char *key, const char *val);
 
+void
+calibration_subdivision_button_handle_down(
+                struct calibration_subdivision_button *button_sub,
+                struct weston_seat *seat, int is_pointer, uint32_t button,
+                uint32_t time, wl_fixed_t x, wl_fixed_t y);
+
+void
+calibration_subdivision_button_handle_up(
+                struct calibration_subdivision_button *button_sub,
+                struct weston_seat *seat, int is_pointer, uint32_t button,
+                uint32_t time, wl_fixed_t x, wl_fixed_t y);
+
+void
+calibration_subdivision_button_handle_motion(
+                struct calibration_subdivision_button *button_sub,
+                struct weston_seat *seat, int is_pointer, uint32_t button,
+                uint32_t time, wl_fixed_t x, wl_fixed_t y);
 #endif

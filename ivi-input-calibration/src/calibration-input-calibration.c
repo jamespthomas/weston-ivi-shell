@@ -125,3 +125,19 @@ calibration_input_calibration_parse(
         free(buf);
     return retval;
 }
+
+void
+calibration_input_calibration_apply(
+                struct calibration_input_calibration *calibration,
+                wl_fixed_t xin, wl_fixed_t yin,
+                wl_fixed_t *xout, wl_fixed_t *yout)
+{
+    float fx = wl_fixed_to_double(xin);
+    float fy = wl_fixed_to_double(yin);
+    *xout = wl_fixed_from_double(calibration->x1 * fx
+                                 + calibration->x2 * fy
+                                 + calibration->x3);
+    *yout = wl_fixed_from_double(calibration->y1 * fx
+                                 + calibration->y2 * fy
+                                 + calibration->y3);
+}

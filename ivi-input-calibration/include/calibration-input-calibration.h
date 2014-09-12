@@ -35,4 +35,10 @@ int
 calibration_input_calibration_parse(
                 struct calibration_input_calibration *calibration,
                 const char *path);
+
+void
+calibration_input_calibration_apply(
+                struct calibration_input_calibration *calibration,
+                wl_fixed_t xin, wl_fixed_t yin,
+                wl_fixed_t *xout, wl_fixed_t *yout);
 #endif

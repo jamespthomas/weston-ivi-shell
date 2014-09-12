@@ -54,4 +54,28 @@ calibration_subdivision_get_width(struct calibration_subdivision *sub);
 uint32_t
 calibration_subdivision_get_height(struct calibration_subdivision *sub);
 
+struct calibration_subdivision*
+calibration_subdivision_get(struct wl_list *subdivision_list, float x, float y);
+
+void
+calibration_subdivision_handle_down(struct calibration_subdivision *sub,
+                                    struct weston_seat *seat,
+                                    int is_pointer, uint32_t button,
+                                    uint32_t time,
+                                    wl_fixed_t x, wl_fixed_t y);
+
+void
+calibration_subdivision_handle_up(struct calibration_subdivision *sub,
+                                  struct weston_seat *seat,
+                                  int is_pointer, uint32_t button,
+                                  uint32_t time,
+                                  wl_fixed_t x, wl_fixed_t y);
+
+void
+calibration_subdivision_handle_motion(struct calibration_subdivision *sub,
+                                      struct weston_seat *seat,
+                                      int is_pointer, uint32_t button,
+                                      uint32_t time,
+                                      wl_fixed_t x, wl_fixed_t y);
+
 #endif
