@@ -25,9 +25,13 @@
 #include "calibration-subdivision.h"
 
 struct calibration_subdivision_button {
+    /* Parsed calibration */
     struct calibration_subdivision subdivision;
     uint32_t key_code;
     float minimum_repetition_interval;
+
+    /* State */
+    uint32_t last_time;
 };
 
 int

@@ -64,6 +64,19 @@ calibration_subdivision_button_handle_down(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    struct calibration_subdivision *sub = &button_sub->subdivision;
+    int slot = is_pointer ? CALIBRATION_POINTER_SLOT : button;
+    if (!calibration_subdivision_get_slot_pressed(sub, slot)) {
+
+        if (time >= button_sub->last_time
+                   + button_sub->minimum_repetition_interval * 1000) {
+            struct weston_keyboard_grab *grab = &seat->keyboard->default_grab;
+
+            grab->interface->key(grab, time, button_sub->key_code,
+                                 WL_KEYBOARD_KEY_STATE_PRESSED);
+        }
+        calibration_subdivision_set_slot_pressed(sub, slot, 1);
+    }
 }
 
 void
@@ -72,6 +85,19 @@ calibration_subdivision_button_handle_up(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    struct calibration_subdivision *sub = &button_sub->subdivision;
+    int slot = is_pointer ? CALIBRATION_POINTER_SLOT : button;
+    if (calibration_subdivision_get_slot_pressed(sub, slot)) {
+        if ( time >= button_sub->last_time
+                     + button_sub->minimum_repetition_interval * 1000) {
+            struct weston_keyboard_grab *grab = &seat->keyboard->default_grab;
+
+            grab->interface->key(grab, time, button_sub->key_code,
+                                 WL_KEYBOARD_KEY_STATE_RELEASED);
+            button_sub->last_time = time;
+        }
+        calibration_subdivision_set_slot_pressed(sub, slot, 0);
+    }
 }
 
 void
@@ -95,4 +121,13 @@ void calibration_subdivision_button_handle_leave(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    struct calibration_subdivision *sub = &button_sub->subdivision;
+    int slot = is_pointer ? CALIBRATION_POINTER_SLOT : button;
+    if (calibration_subdivision_get_slot_pressed(sub, slot)) {
+        struct weston_keyboard_grab *grab = &seat->keyboard->default_grab;
+        /* Indicate a 'cancel', which is different from a release */
+        grab->interface->key(grab, time, button_sub->key_code,
+                             WL_KEYBOARD_KEY_STATE_PRESSED);
+        calibration_subdivision_set_slot_pressed(sub, slot, 0);
+    }
 }
