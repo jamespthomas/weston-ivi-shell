@@ -119,8 +119,8 @@ calibration_input_configuration_parse(
             wl_list_insert(&conf->device_names, &devname->link);
 
         } else if (strcmp(key, "calibration file") == 0) {
-            weston_log("Parsing calibration file\n");
             /* Parse calibration file */
+            calibration_input_calibration_parse(&conf->calibration, val);
 
         } else if (key[0] == '-') { /* List entry starts with a '-' */
             if (!inSubdivisions) {

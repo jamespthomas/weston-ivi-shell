@@ -24,6 +24,7 @@
 #include <weston/compositor.h>
 
 #include "calibration-input-calibration.h"
+#include "calibration-util.h"
 
 int
 calibration_input_calibration_parse(
