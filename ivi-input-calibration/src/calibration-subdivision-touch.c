@@ -21,6 +21,7 @@
 
 #include <weston/compositor.h>
 
+#include "calibration-util.h"
 #include "calibration-subdivision-touch.h"
 
 int
@@ -60,6 +61,25 @@ calibration_subdivision_touch_handle_down(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    struct calibration_subdivision *sub = &touch_sub->subdivision;
+    int slot = is_pointer ? CALIBRATION_POINTER_SLOT : button;
+    if (!calibration_subdivision_get_slot_pressed(sub, button)) {
+        if (is_pointer) {
+            struct weston_pointer_grab *grab = &seat->pointer->default_grab;
+            grab->interface->button(grab, time, button,
+                                    WL_POINTER_BUTTON_STATE_PRESSED);
+        } else {
+            struct weston_touch_grab *grab = &seat->touch->default_grab;
+            wl_fixed_t sx, sy;
+
+            /* If there's no appropriate view, sx and sy would be junk data */
+            if (seat->touch->focus)
+                weston_view_from_global_fixed(seat->touch->focus,
+                                              x, y, &sx, &sy);
+            grab->interface->down(grab, time, button, sx, sy);
+        }
+        calibration_subdivision_set_slot_pressed(sub, slot, 1);
+    }
 }
 
 void
@@ -68,6 +88,19 @@ calibration_subdivision_touch_handle_up(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    struct calibration_subdivision *sub = &touch_sub->subdivision;
+    int slot = is_pointer ? CALIBRATION_POINTER_SLOT : button;
+    if (calibration_subdivision_get_slot_pressed(sub, slot)) {
+        if (is_pointer) {
+            struct weston_pointer_grab *grab = &seat->pointer->default_grab;
+            grab->interface->button(grab, time, button,
+                                    WL_POINTER_BUTTON_STATE_RELEASED);
+        } else {
+            struct weston_touch_grab *grab = &seat->touch->default_grab;
+            grab->interface->up(grab, time, button);
+        }
+        calibration_subdivision_set_slot_pressed(sub, slot, 0);
+    }
 }
 
 void
@@ -76,6 +109,18 @@ calibration_subdivision_touch_handle_motion(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    if (is_pointer) {
+        struct weston_pointer_grab *grab = &seat->pointer->default_grab;
+        grab->interface->motion(grab, time, x, y);
+    } else {
+        struct weston_touch_grab *grab = &seat->touch->default_grab;
+        wl_fixed_t sx, sy;
+
+        /* If there's no appropriate view, sx and sy would be junk data */
+        if (seat->touch->focus)
+            weston_view_from_global_fixed(seat->touch->focus, x, y, &sx, &sy);
+        grab->interface->motion(grab, time, button, sx, sy);
+    }
 }
 
 void
@@ -84,6 +129,25 @@ calibration_subdivision_touch_handle_enter(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    struct calibration_subdivision *sub = &touch_sub->subdivision;
+    int slot = is_pointer ? CALIBRATION_POINTER_SLOT : button;
+    if (!calibration_subdivision_get_slot_pressed(sub, slot)) {
+        if (is_pointer) {
+            struct weston_pointer_grab *grab = &seat->pointer->default_grab;
+            grab->interface->button(grab, time, button,
+                                    WL_POINTER_BUTTON_STATE_PRESSED);
+        } else {
+            struct weston_touch_grab *grab = &seat->touch->default_grab;
+            wl_fixed_t sx, sy;
+
+            /* If there's no appropriate view, sx and sy would be junk data */
+            if (seat->touch->focus)
+                weston_view_from_global_fixed(seat->touch->focus,
+                                              x, y, &sx, &sy);
+            grab->interface->down(grab, time, button, sx, sy);
+        }
+        calibration_subdivision_set_slot_pressed(sub, slot, 1);
+    }
 }
 
 void calibration_subdivision_touch_handle_leave(
@@ -91,4 +155,17 @@ void calibration_subdivision_touch_handle_leave(
                 struct weston_seat *seat, int is_pointer, uint32_t button,
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
+    struct calibration_subdivision *sub = &touch_sub->subdivision;
+    int slot = is_pointer ? CALIBRATION_POINTER_SLOT : button;
+    if (calibration_subdivision_get_slot_pressed(sub, slot)) {
+        if (is_pointer) {
+            struct weston_pointer_grab *grab = &seat->pointer->default_grab;
+            grab->interface->button(grab, time, button,
+                                    WL_POINTER_BUTTON_STATE_RELEASED);
+        } else {
+            struct weston_touch_grab *grab = &seat->touch->default_grab;
+            grab->interface->up(grab, time, button);
+        }
+        calibration_subdivision_set_slot_pressed(sub, slot, 0);
+    }
 }
