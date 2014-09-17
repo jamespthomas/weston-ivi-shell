@@ -426,6 +426,13 @@ handle_seat_create(struct wl_listener *listener, void *data)
         return;
     }
 
+    /* Subdivisions can send pointer/keyboard events without a device
+     * existing */
+    if (seat->pointer == NULL)
+        weston_seat_init_pointer(seat);
+    if (seat->keyboard == NULL)
+        weston_seat_init_keyboard(seat, NULL);
+
     wl_list_init(&seat_ctx->active_subdivision_list);
 
     seat_ctx->seat = seat;
