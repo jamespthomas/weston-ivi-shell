@@ -88,3 +88,18 @@ calibration_subdivision_slider_handle_motion(
                 uint32_t time, wl_fixed_t x, wl_fixed_t y)
 {
 }
+
+void
+calibration_subdivision_slider_handle_enter(
+                struct calibration_subdivision_slider *slider_sub,
+                struct weston_seat *seat, int is_pointer, uint32_t button,
+                uint32_t time, wl_fixed_t x, wl_fixed_t y)
+{
+}
+
+void calibration_subdivision_slider_handle_leave(
+                struct calibration_subdivision_slider *slider_sub,
+                struct weston_seat *seat, int is_pointer, uint32_t button,
+                uint32_t time, wl_fixed_t x, wl_fixed_t y)
+{
+}

@@ -24,6 +24,8 @@
 
 #include <weston/compositor.h>
 
+#define CALIBRATION_POINTER_SLOT -1
+
 void
 calibration_strip_whitespace(char *str);
 

@@ -29,10 +29,18 @@
 #include "calibration-subdivision-button.h"
 #include "calibration-subdivision-slider.h"
 #include "calibration-subdivision-touch.h"
+#include "calibration-util.h"
+
+struct active_subdivision_map {
+    struct wl_list link;
+    int slot;
+    struct calibration_subdivision *subdivision;
+};
 
 struct calibration_seat_context {
     struct wl_listener destroy_listener;
     struct wl_listener updated_caps_listener;
+    struct wl_list active_subdivision_list;
     struct wl_list link;
 
     struct weston_seat *seat;
@@ -53,6 +61,87 @@ static struct input_calibration_context g_ctx;
 
 
 
+static struct calibration_seat_context*
+get_seat_ctx_from_seat(struct weston_seat *seat)
+{
+    struct calibration_seat_context *seat_ctx;
+    wl_list_for_each(seat_ctx, &g_ctx.seat_context_list, link) {
+        if (seat_ctx->seat == seat)
+            return seat_ctx;
+    }
+
+    return NULL;
+}
+
+static void 
+set_active_subdivision(struct weston_seat *seat,
+                       struct calibration_subdivision *sub,
+                       int slot)
+{
+    struct calibration_seat_context *ctx = get_seat_ctx_from_seat(seat);
+    struct active_subdivision_map *map;
+    int found_slot = 0;
+
+    wl_list_for_each(map, &ctx->active_subdivision_list, link) {
+        if (map->slot == slot) {
+            map->subdivision = sub;
+            found_slot = 1;
+            break;
+        }
+    }
+
+    if (!found_slot) {
+        map = calloc(1, sizeof *map);
+        if (map == NULL) {
+            weston_log("%s: Failed to allocate memory for slot-subdivision "
+                       "mapping\n", __FUNCTION__);
+            return;
+        }
+        map->slot = slot;
+        map->subdivision = sub;
+        wl_list_insert(&ctx->active_subdivision_list, &map->link);
+    }
+}
+
+static struct calibration_subdivision *
+get_active_subdivision(struct weston_seat *seat, int slot)
+{
+    struct calibration_seat_context *ctx = get_seat_ctx_from_seat(seat);
+    struct active_subdivision_map *map;
+    
+    wl_list_for_each(map, &ctx->active_subdivision_list, link) {
+        if (map->slot == slot)
+            return map->subdivision;
+    }
+
+    return NULL;
+}
+
+
+static void
+process_active_subdivision_changes(struct weston_seat *seat,
+                                   struct calibration_subdivision *sub,
+                                   int slot, uint32_t time,
+                                   wl_fixed_t x, wl_fixed_t y)
+{
+    struct calibration_subdivision *active_sub = 
+        get_active_subdivision(seat, slot);
+    int is_pointer = (slot == CALIBRATION_POINTER_SLOT) ? 1 : 0;
+    if (sub != active_sub) {
+        /* The input has moved out of its current subdivision */
+        if (active_sub != NULL) {
+            calibration_subdivision_handle_leave(active_sub, seat, is_pointer,
+                                                 slot, time, x, y);
+        }
+        set_active_subdivision(seat, sub, slot);
+        if (sub != NULL) {
+            calibration_subdivision_handle_enter(sub, seat, is_pointer,
+                                                 slot, time, x, y);
+        }
+    }
+}
+
+
 static void
 calibration_pointer_grab_focus(struct weston_pointer_grab *grab)
 {
@@ -70,6 +159,8 @@ calibration_pointer_grab_motion(struct weston_pointer_grab *grab,
     sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
                                       wl_fixed_to_double(x),
                                       wl_fixed_to_double(y));
+    process_active_subdivision_changes(grab->pointer->seat, sub, CALIBRATION_POINTER_SLOT,
+                                       time, x, y);
 
     if (sub)
         calibration_subdivision_handle_motion(sub, grab->pointer->seat, 1,
@@ -89,6 +180,8 @@ calibration_pointer_grab_button(struct weston_pointer_grab *grab,
     sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
                                       wl_fixed_to_double(x),
                                       wl_fixed_to_double(y));
+    process_active_subdivision_changes(grab->pointer->seat, sub, CALIBRATION_POINTER_SLOT,
+                                       time, x, y);
     if (sub) {
         if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
             calibration_subdivision_handle_up(sub, grab->pointer->seat, 1,
@@ -161,6 +254,8 @@ calibration_touch_grab_down(struct weston_touch_grab *grab, uint32_t time,
     sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
                                       wl_fixed_to_double(x),
                                       wl_fixed_to_double(y));
+    process_active_subdivision_changes(grab->touch->seat, sub, touch_id,
+                                       time, x, y);
 
     if (sub)
         calibration_subdivision_handle_down(sub, grab->touch->seat, 0,
@@ -179,6 +274,8 @@ calibration_touch_grab_up(struct weston_touch_grab *grab, uint32_t time,
     sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
                                       wl_fixed_to_double(x),
                                       wl_fixed_to_double(y));
+    process_active_subdivision_changes(grab->touch->seat, sub, touch_id,
+                                       time, x, y);
 
     if (sub)
         calibration_subdivision_handle_up(sub, grab->touch->seat, 0,
@@ -197,6 +294,8 @@ calibration_touch_grab_motion(struct weston_touch_grab *grab, uint32_t time,
     sub = calibration_subdivision_get(&g_ctx.configuration.subdivisions,
                                       wl_fixed_to_double(x),
                                       wl_fixed_to_double(y));
+    process_active_subdivision_changes(grab->touch->seat, sub, touch_id,
+                                       time, x, y);
 
     if (sub)
         calibration_subdivision_handle_motion(sub, grab->touch->seat, 0,
@@ -267,18 +366,6 @@ grab_touch(struct calibration_seat_context *ctx_seat)
 
 }
 
-static struct calibration_seat_context*
-get_seat_ctx_from_seat(struct weston_seat *seat)
-{
-    struct calibration_seat_context *seat_ctx;
-    wl_list_for_each(seat_ctx, &g_ctx.seat_context_list, link) {
-        if (seat_ctx->seat == seat)
-            return seat_ctx;
-    }
-
-    return NULL;
-}
-
 static void
 handle_seat_updated_caps(struct wl_listener *listener, void *data)
 {
@@ -338,6 +425,8 @@ handle_seat_create(struct wl_listener *listener, void *data)
         weston_log("%s: Failed to create seat context\n", __FUNCTION__);
         return;
     }
+
+    wl_list_init(&seat_ctx->active_subdivision_list);
 
     seat_ctx->seat = seat;
     seat_ctx->p_grab.interface = &calibration_pointer_grab_interface;
