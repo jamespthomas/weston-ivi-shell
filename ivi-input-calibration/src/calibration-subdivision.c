@@ -28,6 +28,45 @@
 #include "calibration-subdivision-touch.h"
 #include "calibration-util.h"
 
+void
+calibration_subdivision_set_slot_pressed(struct calibration_subdivision *sub,
+                                         int slot, int pressed)
+{
+    struct calibration_slot_pressed_map *map;
+    int found_slot = 0;
+    wl_list_for_each(map, &sub->slot_pressed_list, link) {
+        if (map->slot == slot) {
+            map->pressed = pressed;
+            found_slot = 1;
+            break;
+        }
+    }
+    if (!found_slot) {
+        map = calloc(1, sizeof *map);
+        if (map == NULL) {
+            weston_log("%s: Failed to allocate memory for slot-pressed "
+                       "mapping\n", __FUNCTION__);
+            return;
+        }
+        map->slot = slot;
+        map->pressed = pressed;
+        wl_list_insert(&sub->slot_pressed_list, &map->link);
+    }
+}
+
+int
+calibration_subdivision_get_slot_pressed(struct calibration_subdivision *sub,
+                                         int slot)
+{
+    struct calibration_slot_pressed_map *map;
+
+    wl_list_for_each(map, &sub->slot_pressed_list, link) {
+        if (map->slot == slot)
+            return map->pressed;
+    }
+    return 0;
+}
+
 int
 calibration_subdivision_parse(struct calibration_subdivision *sub,
                               FILE *stream)
@@ -50,6 +89,8 @@ calibration_subdivision_parse(struct calibration_subdivision *sub,
         free(buf);
         return retval;
     }
+
+    wl_list_init(&sub->slot_pressed_list);
 
     while (getline(&buf, &n, stream) != -1) {
         if (!calibration_split_line(buf, key, val)) {

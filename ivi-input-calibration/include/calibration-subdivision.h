@@ -29,6 +29,12 @@ enum calibration_subdivision_type {
     CALIBRATION_SUBDIVISION_TYPE_SLIDER,
 };
 
+struct calibration_slot_pressed_map {
+    struct wl_list link;
+    int slot;
+    int pressed;
+};
+
 struct calibration_subdivision {
     struct wl_list link;
     enum calibration_subdivision_type type;
@@ -38,7 +44,18 @@ struct calibration_subdivision {
     uint32_t top_left_y;
     uint32_t bottom_right_x;
     uint32_t bottom_right_y;
+
+    /* state */
+    struct wl_list slot_pressed_list;
 };
+
+void
+calibration_subdivision_set_slot_pressed(struct calibration_subdivision *sub,
+                                         int slot, int pressed);
+
+int
+calibration_subdivision_get_slot_pressed(struct calibration_subdivision *sub,
+                                         int slot);
 
 int
 calibration_subdivision_parse(struct calibration_subdivision *sub,
